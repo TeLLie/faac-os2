@@ -30,6 +30,11 @@
 #include <time.h>
 #include <unistd.h>
 
+#ifdef __OS2__
+# undef bswap16
+# undef bswap32
+#endif
+
 #include "mp4write.h"
 
 enum ATOM_TYPE
