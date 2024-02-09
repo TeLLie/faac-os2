@@ -162,8 +162,10 @@ pcmfile_t *wav_open_read(const char *name, int rawinput)
 
   if (!strcmp(name, "-"))
   {
-#if defined(_WIN32) || defined(__OS2__)
+#ifdef _WIN32
     _setmode(_fileno(stdin), O_BINARY);
+#elif defined __OS2__
+     setmode(fileno(stdin), O_BINARY);
 #endif
     wave_f = stdin;
     dostdin = 1;
