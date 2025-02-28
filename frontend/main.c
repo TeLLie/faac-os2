@@ -38,7 +38,6 @@
 #endif
 
 #ifdef __unix__
-#include <time.h>
 #include <sys/time.h>
 #include <sys/resource.h>
 #include <unistd.h>
@@ -80,15 +79,20 @@ enum flags
     SHORTCTL_FLAG = 300,
     MPEGVERS_FLAG,
     ARTIST_FLAG,
+    ARTIST_SORT_FLAG,
     TITLE_FLAG,
     GENRE_FLAG,
     ALBUM_FLAG,
+    ALBUM_SORT_FLAG,
+    ALBUM_ARTIST_FLAG,
+    ALBUM_ARTIST_SORT_FLAG,
     TRACK_FLAG,
     DISC_FLAG,
     YEAR_FLAG,
     COVER_ART_FLAG,
     COMMENT_FLAG,
     WRITER_FLAG,
+    WRITER_SORT_FLAG,
     TAG_FLAG,
     HELP_QUAL,
     HELP_IO,
@@ -168,10 +172,15 @@ static help_t help_mp4[] = {
     "\t\t*.m4b)\n"},
     {"--tag <tagname,tagvalue> Add named tag (iTunes '----')\n"},
     {"--artist <name>\tSet artist name\n"},
+    {"--artistsort <name>\tSet artist sort order\n"},
     {"--composer <name>\tSet composer name\n"},
+    {"--composersort <name>\tSet composer sort order\n"},
     {"--title <name>\tSet title/track name\n"},
     {"--genre <number>\tSet genre number\n"},
     {"--album <name>\tSet album/performer\n"},
+    {"--albumartist <name>\tSet album artist\n"},
+    {"--albumartistsort <name>\tSet album artist sort order\n"},
+    {"--albumsort <name>\tSet album sort order\n"},
     {"--compilation\tMark as compilation\n"},
     {"--track <number/total>\tSet track number\n"},
     {"--disc <number/total>\tSet disc number\n"},
@@ -461,8 +470,11 @@ int main(int argc, char *argv[])
     unsigned int ntracks = 0, trackno = 0;
     unsigned int ndiscs = 0, discno = 0;
     static int compilation = 0;
-    const char *artist = NULL, *title = NULL, *album = NULL, *year = NULL,
-        *comment = NULL, *composer = NULL, *tagname = 0, *tagval = 0;
+    const char *artist = NULL, *artistsort = NULL, *title = NULL,
+        *album = NULL, *albumartist = NULL,
+        *albumartistsort = NULL, *albumsort = NULL,
+        *year = NULL, *comment = NULL, *composer = NULL,
+        *composersort = NULL, *tagname = 0, *tagval = 0;
     int genre = 0;
     uint8_t *artData = NULL;
     uint64_t artSize = 0;
@@ -526,8 +538,12 @@ int main(int argc, char *argv[])
             {"license", 0, 0, 'L'},
             {"createmp4", 0, 0, 'w'},
             {"artist", 1, 0, ARTIST_FLAG},
+            {"artistsort", 1, 0, ARTIST_SORT_FLAG},
             {"title", 1, 0, TITLE_FLAG},
             {"album", 1, 0, ALBUM_FLAG},
+            {"albumartist", 1, 0, ALBUM_ARTIST_FLAG},
+            {"albumartistsort", 1, 0, ALBUM_ARTIST_SORT_FLAG},
+            {"albumsort", 1, 0, ALBUM_SORT_FLAG},
             {"track", 1, 0, TRACK_FLAG},
             {"disc", 1, 0, DISC_FLAG},
             {"genre", 1, 0, GENRE_FLAG},
@@ -535,6 +551,7 @@ int main(int argc, char *argv[])
             {"cover-art", 1, 0, COVER_ART_FLAG},
             {"comment", 1, 0, COMMENT_FLAG},
             {"composer", 1, 0, WRITER_FLAG},
+            {"composersort", 1, 0, WRITER_SORT_FLAG},
             {"compilation", 0, &compilation, 1},
             {"pcmswapbytes", 0, 0, 'X'},
             {"ignorelength", 0, &ignorelen, 1},
@@ -641,14 +658,29 @@ int main(int argc, char *argv[])
         case ARTIST_FLAG:
             artist = optarg;
             break;
+        case ARTIST_SORT_FLAG:
+            artistsort = optarg;
+            break;
         case WRITER_FLAG:
             composer = optarg;
+            break;
+        case WRITER_SORT_FLAG:
+            composersort = optarg;
             break;
         case TITLE_FLAG:
             title = optarg;
             break;
         case ALBUM_FLAG:
             album = optarg;
+            break;
+        case ALBUM_ARTIST_FLAG:
+            albumartist = optarg;
+            break;
+        case ALBUM_ARTIST_SORT_FLAG:
+            albumartistsort = optarg;
+            break;
+        case ALBUM_SORT_FLAG:
+            albumsort = optarg;
             break;
         case TRACK_FLAG:
             if (sscanf(optarg, "%d/%d", &trackno, &ntracks) < 1)
@@ -660,7 +692,7 @@ int main(int argc, char *argv[])
             break;
         case GENRE_FLAG:
             genre = atoi(optarg);
-            if ((genre < 0) || (genre > 146))
+            if ((genre < 0) || (genre > 255))
                 dieMessage = "Genre number out of range.\n";
             genre++;
             break;
@@ -845,9 +877,13 @@ int main(int argc, char *argv[])
     }
 
     if (container != MP4_CONTAINER && (ntracks || trackno || artist ||
-                                       title || album || year || artData ||
+                                       artistsort || title ||
+                                       album || albumartist ||
+                                       albumartistsort ||
+                                       albumsort || year || artData ||
                                        genre || comment || discno || ndiscs ||
-                                       composer || compilation))
+                                       composer || composersort ||
+                                       compilation))
     {
         fprintf(stderr, "Metadata requires MP4 output!\n");
         return 1;
@@ -1031,12 +1067,12 @@ int main(int argc, char *argv[])
     fprintf(stderr, "Encoding %s to %s\n", audioFileName, aacFileName);
     if (frames != 0)
     {
-        fprintf(stderr, "   frame          | bitrate | elapsed/estim | "
+        fprintf(stderr, "         frame         | bitrate | elapsed/estim | "
                 "play/CPU | ETA\n");
     }
     else
     {
-        fprintf(stderr, " frame | elapsed | play/CPU\n");
+        fprintf(stderr, "  frame  | elapsed | play/CPU\n");
     }
 
     /* encoding loop */
@@ -1108,7 +1144,7 @@ int main(int argc, char *argv[])
                 if (frames != 0)
                 {
                     fprintf(stderr,
-                            "\r%5d/%-5d (%3d%%)|  %5.1f  | %6.1f/%-6.1f | %7.2fx | %.1f ",
+                            "\r%7d/%-7d (%3d%%) |  %5.1f  | %6.1f/%-6.1f | %7.2fx | %.1f ",
                             currentFrame, frames, currentFrame * 100 / frames,
                             ((double) totalBytesWritten * 8.0 / 1000.0) /
                             ((double) infile->samples / infile->samplerate *
@@ -1122,7 +1158,7 @@ int main(int argc, char *argv[])
                 else
                 {
                     fprintf(stderr,
-                            "\r %5d |  %6.1f | %7.2fx ",
+                            "\r %7d | %7.1f | %7.2fx ",
                             currentFrame,
                             timeused,
                             (1024.0 * currentFrame / infile->samplerate) /
@@ -1181,9 +1217,14 @@ int main(int argc, char *argv[])
 
 #define SETTAG(x) if(x)mp4config.tag.x=x
         SETTAG(artist);
+        SETTAG(artistsort);
         SETTAG(composer);
+        SETTAG(composersort);
         SETTAG(title);
         SETTAG(album);
+        SETTAG(albumartist);
+        SETTAG(albumartistsort);
+        SETTAG(albumsort);
         SETTAG(trackno);
         SETTAG(ntracks);
         SETTAG(discno);
