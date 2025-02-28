@@ -37,8 +37,6 @@ extern "C" {
 #include "fft.h"
 #include "quantize.h"
 
-#pragma pack(push, 1)
-
 #include <faaccfg.h>
 
 typedef struct {
@@ -60,8 +58,6 @@ typedef struct {
 
     /* sample buffers of current next and next next frame*/
     double *sampleBuff[MAX_CHANNELS];
-    double *nextSampleBuff[MAX_CHANNELS];
-    double *next2SampleBuff[MAX_CHANNELS];
     double *next3SampleBuff[MAX_CHANNELS];
 
     /* Filterbank buffers */
@@ -93,8 +89,6 @@ typedef struct {
     /* FFT Tables */
     FFT_Tables	fft_tables;
 } faacEncStruct;
-
-#pragma pack(pop)
 
 #ifdef __cplusplus
 }
